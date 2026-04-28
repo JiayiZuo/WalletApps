@@ -7,9 +7,11 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID
-	Name      string
-	CreatedAt time.Time
+	ID           uuid.UUID
+	Name         string
+	PasswordHash string
+	Salt         string
+	CreatedAt    time.Time
 }
 
 type Wallet struct {

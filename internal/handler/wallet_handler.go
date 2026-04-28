@@ -7,6 +7,7 @@ import (
 
 	"WalletApps/internal/middleware"
 	"WalletApps/internal/service"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
@@ -32,24 +33,6 @@ func writeJSON(w http.ResponseWriter, code int, msg string, data interface{}) {
 		Code: code,
 		Msg:  msg,
 		Data: data,
-	})
-}
-
-// LoginHandler A simple login api to show jwt demo
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	// mock user
-	var req struct {
-		UserID string `json:"user_id"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	if req.UserID == "" {
-		http.Error(w, "missing user_id", common.CodeInvalidParam)
-		return
-	}
-	token, _ := common.GenerateJWT(req.UserID)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"token": token,
 	})
 }
 

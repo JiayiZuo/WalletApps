@@ -17,7 +17,7 @@ type Config struct {
 func LoadConfig() *Config {
 	_ = godotenv.Load()
 	return &Config{
-		DB_DSN:     getEnv("DB_DSN", "postgres://postgres:postgres@localhost:5432/wallet?sslmode=disable"),
+		DB_DSN:     getEnv("DB_DSN", "postgres://postgres:123456@localhost:5432/wallet?sslmode=disable"),
 		PORT:       getEnv("PORT", "8080"),
 		JWT_SECRET: getEnv("JWT_SECRET", "mysecret"),
 		REDIS_ADDR: getEnv("REDIS_ADDR", "localhost:6379"),
