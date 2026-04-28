@@ -4,9 +4,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"log"
 	"net/http"
+
+	"github.com/redis/go-redis/v9"
 
 	"WalletApps/config"
 	"WalletApps/internal/common"
@@ -14,6 +15,7 @@ import (
 	"WalletApps/internal/middleware"
 	"WalletApps/internal/repository"
 	"WalletApps/internal/service"
+
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
@@ -42,8 +44,13 @@ func main() {
 	svc := service.NewWalletService(repo, redisClient)
 	h := handler.NewWalletHandler(svc)
 
+	userRepo := repository.NewUserRepository(db)
+	userSvc := service.NewUserService(userRepo)
+	userHandler := handler.NewUserHandler(userSvc)
+
 	// Routes
-	r.HandleFunc("/login", handler.LoginHandler).Methods("POST")
+	r.HandleFunc("/register", userHandler.RegisterHandler).Methods("POST")
+	r.HandleFunc("/login", userHandler.LoginHandler).Methods("POST")
 
 	walletRouter := r.PathPrefix("/api/wallet").Subrouter()
 	walletRouter.Use(middleware.JWTAuthMiddleware)
