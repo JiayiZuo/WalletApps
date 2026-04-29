@@ -1,6 +1,8 @@
 CREATE TABLE users (
     id UUID PRIMARY KEY,
     name VARCHAR(100),
+    password_hash VARCHAR(64) NOT NULL,
+    salt VARCHAR(32) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
