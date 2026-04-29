@@ -56,6 +56,25 @@ func (h *WalletHandler) CreateWallet(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *WalletHandler) GetWallets(w http.ResponseWriter, r *http.Request) {
+	uidStr, ok := r.Context().Value(middleware.ContextKeyUserID).(string)
+	if !ok {
+		http.Error(w, common.TransactionNoPermission, common.CodeNoPermission)
+		return
+	}
+	uid, _ := uuid.Parse(uidStr)
+	wallets, err := h.svc.GetWalletsByUserID(uid)
+	if err != nil {
+		http.Error(w, "failed to get user's wallets", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, common.CodeOK, common.SUCCESS, map[string]interface{}{
+		"code": 0,
+		"data": wallets,
+		"msg":  "get wallets successfully",
+	})
+}
+
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	// Get userID from params
 	//userID := mux.Vars(r)["user_id"]
@@ -70,19 +89,21 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	uid, _ := uuid.Parse(uidStr)
 
 	var req struct {
-		Amount float64 `json:"amount"`
+		Amount   float64   `json:"amount"`
+		WalletID uuid.UUID `json:"wallet_id"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	err := h.svc.Deposit(uid, req.Amount)
+	err := h.svc.Deposit(uid, req.WalletID, req.Amount)
 	if err != nil {
 		writeJSON(w, common.CodeInternalError, err.Error(), nil)
 		return
 	}
-	balance, _ := h.svc.GetBalance(uid)
+	balance, _ := h.svc.GetBalance(uid, req.WalletID)
 	writeJSON(w, common.CodeOK, common.SUCCESS, map[string]interface{}{
-		"user_id": uid,
-		"amount":  req.Amount,
-		"balance": balance,
+		"user_id":   uid,
+		"wallet_id": req.WalletID,
+		"amount":    req.Amount,
+		"balance":   balance,
 	})
 }
 
@@ -97,19 +118,21 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	}
 	uid, _ := uuid.Parse(uidStr)
 	var req struct {
-		Amount float64 `json:"amount"`
+		WalletID uuid.UUID `json:"wallet_id"`
+		Amount   float64   `json:"amount"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	err := h.svc.Withdraw(uid, req.Amount)
+	err := h.svc.Withdraw(uid, req.WalletID, req.Amount)
 	if err != nil {
 		writeJSON(w, common.CodeInsufficientFunds, err.Error(), nil)
 		return
 	}
-	balance, _ := h.svc.GetBalance(uid)
+	balance, _ := h.svc.GetBalance(uid, req.WalletID)
 	writeJSON(w, common.CodeOK, common.SUCCESS, map[string]interface{}{
-		"user_id": uid,
-		"amount":  req.Amount,
-		"balance": balance,
+		"user_id":   uid,
+		"wallet_id": req.WalletID,
+		"amount":    req.Amount,
+		"balance":   balance,
 	})
 }
 
@@ -118,32 +141,35 @@ func (h *WalletHandler) Transfer(w http.ResponseWriter, r *http.Request) {
 	//fromUUID, _ := uuid.Parse(fromID)
 
 	// Using jwt
-	fromIDStr, ok := r.Context().Value(middleware.ContextKeyUserID).(string)
+	fromUserIDStr, ok := r.Context().Value(middleware.ContextKeyUserID).(string)
 	if !ok {
 		http.Error(w, common.TransactionNoPermission, common.CodeNoPermission)
 		return
 	}
-	fromUUID, _ := uuid.Parse(fromIDStr)
-	toID := mux.Vars(r)["to_user_id"]
-	toUUID, _ := uuid.Parse(toID)
+	fromUUID, _ := uuid.Parse(fromUserIDStr)
 
 	var req struct {
-		Amount float64 `json:"amount"`
+		ToUserID     uuid.UUID `json:"to_user_id"`
+		FromWalletID uuid.UUID `json:"from_wallet_id"`
+		ToWalletID   uuid.UUID `json:"to_wallet_id"`
+		Amount       float64   `json:"amount"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	err := h.svc.Transfer(fromUUID, toUUID, req.Amount)
+	err := h.svc.Transfer(fromUUID, req.ToUserID, req.FromWalletID, req.ToWalletID, req.Amount)
 	if err != nil {
 		writeJSON(w, common.CodeInternalError, err.Error(), nil)
 		return
 	}
-	fromBalance, _ := h.svc.GetBalance(fromUUID)
-	toBalance, _ := h.svc.GetBalance(toUUID)
+	fromBalance, _ := h.svc.GetBalance(fromUUID, req.FromWalletID)
+	toBalance, _ := h.svc.GetBalance(req.ToUserID, req.ToWalletID)
 	writeJSON(w, common.CodeOK, common.SUCCESS, map[string]interface{}{
-		"from_user_id": fromUUID,
-		"to_user_id":   toUUID,
-		"amount":       req.Amount,
-		"from_balance": fromBalance,
-		"to_balance":   toBalance,
+		"from_user_id":   fromUUID,
+		"to_user_id":     req.ToUserID,
+		"amount":         req.Amount,
+		"from_wallet_id": req.FromWalletID,
+		"to_wallet_id":   req.ToWalletID,
+		"from_balance":   fromBalance,
+		"to_balance":     toBalance,
 	})
 }
 
@@ -156,14 +182,17 @@ func (h *WalletHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid, _ := uuid.Parse(uidStr)
-	balance, err := h.svc.GetBalance(uid)
+	walletID := mux.Vars(r)["wallet_id"]
+	walletIDStr, _ := uuid.Parse(walletID)
+	balance, err := h.svc.GetBalance(uid, walletIDStr)
 	if err != nil {
 		writeJSON(w, common.CodeInternalError, err.Error(), nil)
 		return
 	}
 	writeJSON(w, common.CodeOK, common.SUCCESS, map[string]interface{}{
-		"user_id": uid,
-		"balance": balance,
+		"user_id":   uid,
+		"wallet_id": walletIDStr,
+		"balance":   balance,
 	})
 }
 
@@ -176,7 +205,9 @@ func (h *WalletHandler) GetTransactions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	uid, _ := uuid.Parse(uidStr)
-	txs, err := h.svc.GetTransactions(uid)
+	walletID := mux.Vars(r)["wallet_id"]
+	walletIDStr, _ := uuid.Parse(walletID)
+	txs, err := h.svc.GetTransactions(uid, walletIDStr)
 	if err != nil {
 		writeJSON(w, common.CodeInternalError, err.Error(), nil)
 		return

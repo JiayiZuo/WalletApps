@@ -52,7 +52,15 @@ func (s *WalletService) CreateWallet(userID uuid.UUID) (*model.Wallet, error) {
 	return wallet, nil
 }
 
-func (s *WalletService) Deposit(userID uuid.UUID, amount float64) error {
+func (s *WalletService) GetWalletsByUserID(userID uuid.UUID) ([]*model.Wallet, error) {
+	wallets, err := s.repo.GetWalletsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return wallets, nil
+}
+
+func (s *WalletService) Deposit(userID uuid.UUID, walletID uuid.UUID, amount float64) error {
 	ctx := context.Background()
 	lock, err := s.locker.Obtain(ctx, common.WalletLockPrefix+userID.String(), 5*time.Second, nil)
 	if err == redislock.ErrNotObtained {
@@ -63,9 +71,12 @@ func (s *WalletService) Deposit(userID uuid.UUID, amount float64) error {
 	}
 	defer lock.Release(ctx)
 
-	wallet, err := s.repo.GetWalletByUserID(userID)
+	wallet, err := s.repo.GetWalletByWalletID(walletID)
 	if err != nil {
 		return err
+	}
+	if wallet.UserID != userID {
+		return errors.New("User and wallet didn't match, please check.")
 	}
 	newBalance := wallet.Balance + amount
 	err = s.repo.UpdateWalletBalance(wallet.ID, newBalance)
@@ -86,7 +97,7 @@ func (s *WalletService) Deposit(userID uuid.UUID, amount float64) error {
 	return s.repo.InsertTransaction(t)
 }
 
-func (s *WalletService) Withdraw(userID uuid.UUID, amount float64) error {
+func (s *WalletService) Withdraw(userID uuid.UUID, walletID uuid.UUID, amount float64) error {
 	ctx := context.Background()
 	lock, err := s.locker.Obtain(ctx, common.WalletLockPrefix+userID.String(), 5*time.Second, nil)
 	if err == redislock.ErrNotObtained {
@@ -97,9 +108,12 @@ func (s *WalletService) Withdraw(userID uuid.UUID, amount float64) error {
 	}
 	defer lock.Release(ctx)
 
-	wallet, err := s.repo.GetWalletByUserID(userID)
+	wallet, err := s.repo.GetWalletByWalletID(walletID)
 	if err != nil {
 		return err
+	}
+	if wallet.UserID != userID {
+		return errors.New("User and wallet didn't match, please check.")
 	}
 	if wallet.Balance < amount {
 		return errorInsufficientFunds{}
@@ -123,7 +137,7 @@ func (s *WalletService) Withdraw(userID uuid.UUID, amount float64) error {
 	return s.repo.InsertTransaction(t)
 }
 
-func (s *WalletService) Transfer(fromUserID, toUserID uuid.UUID, amount float64) error {
+func (s *WalletService) Transfer(fromUserID, toUserID uuid.UUID, fromWalletID, toWalletID uuid.UUID, amount float64) error {
 	ctx := context.Background()
 
 	// lock 2 wallet in case of deadlock order lock according to userID in asc order
@@ -151,13 +165,16 @@ func (s *WalletService) Transfer(fromUserID, toUserID uuid.UUID, amount float64)
 	}
 	defer lock2.Release(ctx)
 
-	fromWallet, err := s.repo.GetWalletByUserID(fromUserID)
+	fromWallet, err := s.repo.GetWalletByWalletID(fromWalletID)
 	if err != nil {
 		return err
 	}
-	toWallet, err := s.repo.GetWalletByUserID(toUserID)
+	toWallet, err := s.repo.GetWalletByWalletID(toWalletID)
 	if err != nil {
 		return err
+	}
+	if fromWallet.UserID != fromUserID || toWallet.UserID != toUserID {
+		return errors.New("User and wallet didn't match, please check.")
 	}
 	err = s.repo.Transfer(fromWallet.ID, toWallet.ID, amount)
 	if err != nil {
@@ -196,10 +213,13 @@ func (s *WalletService) Transfer(fromUserID, toUserID uuid.UUID, amount float64)
 	return nil
 }
 
-func (s *WalletService) GetBalance(userID uuid.UUID) (float64, error) {
-	wallet, err := s.repo.GetWalletByUserID(userID)
+func (s *WalletService) GetBalance(userID, walletID uuid.UUID) (float64, error) {
+	wallet, err := s.repo.GetWalletByWalletID(walletID)
 	if err != nil {
 		return 0, err
+	}
+	if wallet.UserID != userID {
+		return 0, errors.New("User and wallet didn't match, please check.")
 	}
 	common.Logger.Info(common.WithdrawRequest,
 		zap.String("from_id", userID.String()),
@@ -208,10 +228,13 @@ func (s *WalletService) GetBalance(userID uuid.UUID) (float64, error) {
 	return wallet.Balance, nil
 }
 
-func (s *WalletService) GetTransactions(userID uuid.UUID) ([]model.Transaction, error) {
-	wallet, err := s.repo.GetWalletByUserID(userID)
+func (s *WalletService) GetTransactions(userID, walletID uuid.UUID) ([]model.Transaction, error) {
+	wallet, err := s.repo.GetWalletByWalletID(walletID)
 	if err != nil {
 		return nil, err
+	}
+	if wallet.UserID != userID {
+		return nil, errors.New("User and wallet didn't match, please check.")
 	}
 	common.Logger.Info(common.WithdrawRequest,
 		zap.String("user_id", userID.String()),

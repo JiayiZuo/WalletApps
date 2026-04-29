@@ -17,13 +17,53 @@ func NewWalletRepository(db *sql.DB) *WalletRepository {
 	return &WalletRepository{db: db}
 }
 
-func (r *WalletRepository) GetWalletByUserID(userID uuid.UUID) (*model.Wallet, error) {
+// func (r *WalletRepository) GetWalletByUserID(userID uuid.UUID) (*model.Wallet, error) {
+// 	var wallet model.Wallet
+// 	err := r.db.QueryRow(`
+// 		SELECT id, user_id, address, balance, updated_at
+// 		FROM wallets
+// 		WHERE user_id = $1
+// 	`, userID).Scan(&wallet.ID, &wallet.UserID, &wallet.Address, &wallet.Balance, &wallet.UpdatedAt)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &wallet, nil
+// }
+
+func (r *WalletRepository) GetWalletsByUserID(userID uuid.UUID) ([]*model.Wallet, error) {
+	rows, err := r.db.Query(`
+        SELECT id, user_id, address, balance, updated_at
+        FROM wallets
+        WHERE user_id = $1
+    `, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var wallets []*model.Wallet
+
+	for rows.Next() {
+		var wallet model.Wallet
+		if err := rows.Scan(&wallet.ID, &wallet.UserID, &wallet.Address, &wallet.Balance, &wallet.UpdatedAt); err != nil {
+			return nil, err
+		}
+		wallets = append(wallets, &wallet)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return wallets, nil
+}
+
+func (r *WalletRepository) GetWalletByWalletID(walletID uuid.UUID) (*model.Wallet, error) {
 	var wallet model.Wallet
 	err := r.db.QueryRow(`
-		SELECT id, user_id, balance, updated_at
+		SELECT id, user_id, address, balance, updated_at
 		FROM wallets
-		WHERE user_id = $1
-	`, userID).Scan(&wallet.ID, &wallet.UserID, &wallet.Balance, &wallet.UpdatedAt)
+		WHERE id = $1
+	`, walletID).Scan(&wallet.ID, &wallet.UserID, &wallet.Address, &wallet.Balance, &wallet.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
