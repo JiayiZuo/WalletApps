@@ -40,12 +40,12 @@ func TestDepositAndWithdraw(t *testing.T) {
 	svc := service.NewWalletService(repo)
 
 	// Deposit 100
-	err = svc.Deposit(userID, 100)
+	err = svc.Deposit(userID, walletID, 100)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	balance, err := svc.GetBalance(userID)
+	balance, err := svc.GetBalance(userID, walletID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,12 +54,12 @@ func TestDepositAndWithdraw(t *testing.T) {
 	}
 
 	// Withdraw 40
-	err = svc.Withdraw(userID, 40)
+	err = svc.Withdraw(userID, walletID, 40)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	balance, err = svc.GetBalance(userID)
+	balance, err = svc.GetBalance(userID, walletID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,13 +93,13 @@ func TestTransfer(t *testing.T) {
 	svc := service.NewWalletService(repo)
 
 	// Alice transfer 30 to Bob
-	err = svc.Transfer(user1, user2, 30)
+	err = svc.Transfer(user1, user2, wallet1, wallet2, 30)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	balance1, _ := svc.GetBalance(user1)
-	balance2, _ := svc.GetBalance(user2)
+	balance1, _ := svc.GetBalance(user1, wallet1)
+	balance2, _ := svc.GetBalance(user2, wallet2)
 
 	if balance1 != 70 {
 		t.Fatalf("Expected Alice 70 got %f", balance1)
