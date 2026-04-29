@@ -54,6 +54,7 @@ func main() {
 
 	walletRouter := r.PathPrefix("/api/wallet").Subrouter()
 	walletRouter.Use(middleware.JWTAuthMiddleware)
+	walletRouter.HandleFunc("/create", h.CreateWallet).Methods("POST")
 	walletRouter.HandleFunc("/deposit", h.Deposit).Methods("POST")
 	walletRouter.HandleFunc("/withdraw", h.Withdraw).Methods("POST")
 	walletRouter.HandleFunc("/transfer/{to_user_id}", h.Transfer).Methods("POST")

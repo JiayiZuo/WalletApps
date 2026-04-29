@@ -36,6 +36,26 @@ func writeJSON(w http.ResponseWriter, code int, msg string, data interface{}) {
 	})
 }
 
+func (h *WalletHandler) CreateWallet(w http.ResponseWriter, r *http.Request) {
+	uidStr, ok := r.Context().Value(middleware.ContextKeyUserID).(string)
+	if !ok {
+		http.Error(w, common.TransactionNoPermission, common.CodeNoPermission)
+		return
+	}
+	uid, _ := uuid.Parse(uidStr)
+
+	wallet, err := h.svc.CreateWallet(uid)
+	if err != nil {
+		http.Error(w, "failed to create wallet", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, common.CodeOK, common.SUCCESS, map[string]interface{}{
+		"code": 0,
+		"data": wallet,
+		"msg":  "wallet created successfully",
+	})
+}
+
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	// Get userID from params
 	//userID := mux.Vars(r)["user_id"]

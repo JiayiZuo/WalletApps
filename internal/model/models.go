@@ -17,6 +17,7 @@ type User struct {
 type Wallet struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
+	Address   string
 	Balance   float64
 	UpdatedAt time.Time
 }

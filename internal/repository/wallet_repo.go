@@ -30,6 +30,12 @@ func (r *WalletRepository) GetWalletByUserID(userID uuid.UUID) (*model.Wallet, e
 	return &wallet, nil
 }
 
+func (r *WalletRepository) Create(wallet *model.Wallet) error {
+	query := `INSERT INTO wallets (id, user_id, address, balance, updated_at) VALUES ($1, $2, $3, $4, NOW())`
+	_, err := r.db.Exec(query, wallet.ID, wallet.UserID, wallet.Address, wallet.Balance)
+	return err
+}
+
 func (r *WalletRepository) UpdateWalletBalance(walletID uuid.UUID, amount float64) error {
 	_, err := r.db.Exec(`
 		UPDATE wallets

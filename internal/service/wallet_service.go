@@ -3,15 +3,18 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
+
 	"github.com/bsm/redislock"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
-	"time"
 
 	"WalletApps/internal/model"
 	"WalletApps/internal/repository"
 
 	"WalletApps/internal/common"
+
 	"github.com/google/uuid"
 )
 
@@ -26,6 +29,27 @@ func NewWalletService(r *repository.WalletRepository, redisClient *redis.Client)
 		repo:   r,
 		locker: locker,
 	}
+}
+
+func (s *WalletService) CreateWallet(userID uuid.UUID) (*model.Wallet, error) {
+	address, err := common.MockGenerateAddress()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate mock address: %v", err)
+	}
+
+	wallet := &model.Wallet{
+		ID:        uuid.New(),
+		UserID:    userID,
+		Address:   address,
+		Balance:   0,
+		UpdatedAt: time.Now(),
+	}
+
+	if err := s.repo.Create(wallet); err != nil {
+		return nil, err
+	}
+
+	return wallet, nil
 }
 
 func (s *WalletService) Deposit(userID uuid.UUID, amount float64) error {
